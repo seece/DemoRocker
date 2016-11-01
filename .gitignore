@@ -1,0 +1,40 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+
+# Compiled binaries
+*.exe
+*.dll
+
+# Visual Studio cruft
+Debug/
+Release/
+bin/
+obj/
+ipch/
+*.log
+*.suo
+*.ncb
+*.sbr
+*.user
+*.sdf
+*.opensdf
+*.db
+*.opendb
+
+*.swp
+
+# Project specific
+lib/librocket-player.lib
+lib/librocket-playerd.lib
+testclient/*.track
