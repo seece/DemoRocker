@@ -28,5 +28,8 @@
     <ClInclude Include="synctrack.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="eventqueue.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

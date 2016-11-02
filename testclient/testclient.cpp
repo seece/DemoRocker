@@ -65,7 +65,10 @@ int main(int argc, char* argv[])
 	if (sync_tcp_connect(rocket, "localhost", SYNC_DEFAULT_PORT))
 		die("failed to connect to host");
 
-	const sync_track *clear_r = sync_get_track(rocket, "clear.r");
+	const sync_track *track_a1 = sync_get_track(rocket, "a:1");
+	const sync_track *track_a2 = sync_get_track(rocket, "a:2");
+	const sync_track *track_b = sync_get_track(rocket, "b");
+	const sync_track *track_c = sync_get_track(rocket, "c");
 
 	bool done = false;
 	while (!done) {
@@ -73,8 +76,11 @@ int main(int argc, char* argv[])
 			sync_tcp_connect(rocket, "localhost", SYNC_DEFAULT_PORT);
 		}
 
-		double val = sync_get_val(clear_r, playback_row);
-		printf("val: %f\n", val);
+		double a1 = sync_get_val(track_a1, playback_row);
+		double a2 = sync_get_val(track_a2, playback_row);
+		double b = sync_get_val(track_b, playback_row);
+		double c = sync_get_val(track_c, playback_row);
+		printf("a1, a2, b, c: %f, %f, %f, %f\n", a1, a2, b, c);
 		if (song_playing) {
 			playback_row += 0.5;
 		}

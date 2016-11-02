@@ -20,67 +20,92 @@ static inline int socket_poll(SOCKET socket)
 	return select((int)socket + 1, &fds, NULL, NULL, &to) > 0;
 }
 
-void SyncClient::sendSetKeyCommand(const QString &trackName, const SyncTrack::TrackKey &key)
+void SyncClient::sendSetKeyCommand(const std::string &trackName, const SyncTrack::TrackKey &key)
 {
-	int trackIndex = trackNames.indexOf(trackName);
-	if (trackIndex < 0)
+	int trackIndex = std::find(trackNames.begin(), trackNames.end(), trackName) - trackNames.begin();
+	if (trackIndex == trackNames.size())
 		return;
 
 	union {
 		float f;
-		quint32 i;
+		uint32_t i;
 	} v;
 	v.f = key.value;
 
-	Q_ASSERT(key.type < SyncTrack::TrackKey::KEY_TYPE_COUNT);
+	assert(key.type < SyncTrack::TrackKey::KEY_TYPE_COUNT);
 
-	QByteArray data;
-	QDataStream ds(&data, QIODevice::WriteOnly);
-	ds << (unsigned char)SET_KEY;
-	ds << (quint32)trackIndex;
-	ds << (quint32)key.row;
-	ds << v.i;
-	ds << (unsigned char)key.type;
-	sendData(data);
+#pragma pack(push, 1)
+	struct {
+		uint8_t cmd;
+		uint32_t trackIndex;
+		uint32_t keyRow;
+		uint32_t keyValue;
+		uint8_t keyType;
+	} data;
+#pragma pack(pop)
+
+	data.cmd		= (uint8_t)SET_KEY;
+	data.trackIndex = (uint32_t)trackIndex;
+	data.keyRow		= (uint32_t)key.row;
+	data.keyValue	= v.i;
+	data.keyType	= (uint8_t)key.type;
+	sendData((const uint8_t*)&data, sizeof(data));
 }
 
-void SyncClient::sendDeleteKeyCommand(const QString &trackName, int row)
+void SyncClient::sendDeleteKeyCommand(const std::string &trackName, int row)
 {
-	int trackIndex = trackNames.indexOf(trackName);
-	if (trackIndex < 0)
+	int trackIndex = std::find(trackNames.begin(), trackNames.end(), trackName) - trackNames.begin();
+	if (trackIndex == trackNames.size())
 		return;
 
-	QByteArray data;
-	QDataStream ds(&data, QIODevice::WriteOnly);
-	ds << (unsigned char)DELETE_KEY;
-	ds << (quint32)trackIndex;
-	ds << (quint32)row;
-	sendData(data);
+#pragma pack(push, 1)
+	struct {
+		uint8_t cmd;
+		uint32_t trackIndex;
+		uint32_t keyRow;
+	} data;
+#pragma pack(pop)
+
+	data.cmd		= (uint8_t)DELETE_KEY;
+	data.trackIndex = (uint32_t)trackIndex;
+	data.keyRow		= (uint32_t)row;
+
+	sendData((const uint8_t*)&data, sizeof(data));
 }
 
 void SyncClient::sendSetRowCommand(int row)
 {
-	QByteArray data;
-	QDataStream ds(&data, QIODevice::WriteOnly);
-	ds << (unsigned char)SET_ROW;
-	ds << (quint32)row;
-	sendData(data);
+#pragma pack(push, 1)
+	struct {
+		uint8_t cmd;
+		uint32_t row;
+	} data;
+#pragma pack(pop)
+
+	data.cmd		= (uint8_t)SET_ROW;
+	data.row		= (uint32_t)row;
+
+	sendData((const uint8_t*)&data, sizeof(data));
 }
 
 void SyncClient::sendPauseCommand(bool pause)
 {
-	QByteArray data;
-	QDataStream ds(&data, QIODevice::WriteOnly);
-	ds << (unsigned char)PAUSE;
-	ds << (unsigned char)pause;
-	sendData(data);
+#pragma pack(push, 1)
+	struct {
+		uint8_t cmd;
+		uint8_t pause;
+	} data;
+#pragma pack(pop)
+
+	data.cmd		= (uint8_t)PAUSE;
+	data.pause		= (uint8_t)pause;
+	sendData((const uint8_t*)&data, sizeof(data));
 }
 
 void SyncClient::sendSaveCommand()
 {
-	QByteArray data;
-	data.append(SAVE_TRACKS);
-	sendData(data);
+	uint8_t cmd = SAVE_TRACKS;
+	sendData(&cmd, sizeof(cmd));
 }
 
 void SyncClient::setPaused(bool pause)
@@ -91,80 +116,167 @@ void SyncClient::setPaused(bool pause)
 	}
 }
 
-void SyncClient::requestTrack(const QString &trackName)
+void SyncClient::requestTrack(const std::string &trackName)
 {
-	trackNames.append(trackName);
-	emit trackRequested(trackName);
+	trackNames.push_back(trackName);
+	// TODO should we handle the event here right away so there wouldn't be a
+	// a race condition where a new track name already exists but isn't added
+	// anywhere else?
+	events.push({ RocketEvent::EventType::EVENT_TRACK_REQUESTED, trackName, 0 });
 }
 
-bool AbstractSocketClient::recv(char *buffer, qint64 length)
+SocketClient::SocketClient(EventQueue& queue, const char *host, unsigned short nport)
+	: SyncClient(queue), conn(INVALID_SOCKET)
 {
-	// wait for enough data to arrive
-	while (socket->bytesAvailable() < length) {
-		if (!socket->waitForReadyRead(-1))
-			return false;
+	SOCKET sock = INVALID_SOCKET;
+#ifdef USE_GETADDRINFO
+	struct addrinfo *addr, *curr;
+	char port[6];
+#else
+	struct hostent *he;
+	char **ap;
+#endif
+
+#ifdef WIN32
+	static int need_init = 1;
+	if (need_init) {
+		WSADATA wsa;
+		if (WSAStartup(MAKEWORD(2, 0), &wsa)) {
+			this->conn = INVALID_SOCKET;
+			return;// INVALID_SOCKET;
+		}
+		need_init = 0;
+	}
+#endif
+
+#ifdef USE_GETADDRINFO
+
+	snprintf(port, sizeof(port), "%u", nport);
+	if (getaddrinfo(host, port, 0, &addr) != 0) {
+		this->conn = INVALID_SOCKET;
+		return;
 	}
 
-	qint64 ret = socket->read(buffer, length);
-	Q_ASSERT(ret == length);
-	Q_UNUSED(ret);
-	return true;
+	for (curr = addr; curr; curr = curr->ai_next) {
+		int family = curr->ai_family;
+		struct sockaddr *sa = curr->ai_addr;
+		int sa_len = (int)curr->ai_addrlen;
+
+#else
+
+	he = gethostbyname(host);
+	if (!he) {
+		this->conn = INVALID_SOCKET;
+		return;
+	}
+
+	for (ap = he->h_addr_list; *ap; ++ap) {
+		int family = he->h_addrtype;
+		struct sockaddr_in sin;
+		struct sockaddr *sa = (struct sockaddr *)&sin;
+		int sa_len = sizeof(*sa);
+
+		sin.sin_family = he->h_addrtype;
+		sin.sin_port = htons(nport);
+		memcpy(&sin.sin_addr, *ap, he->h_length);
+		memset(&sin.sin_zero, 0, sizeof(sin.sin_zero));
+
+#endif
+
+		sock = socket(family, SOCK_STREAM, 0);
+		if (sock == INVALID_SOCKET)
+			continue;
+
+		// TODO change this, it must be totally different for server
+		if (connect(sock, sa, sa_len) >= 0) {
+			char greet[128];
+
+			if (xsend(sock, CLIENT_GREET, strlen(CLIENT_GREET), 0) ||
+				xrecv(sock, greet, strlen(SERVER_GREET), 0)) {
+				closesocket(sock);
+				sock = INVALID_SOCKET;
+				continue;
+			}
+
+			if (!strncmp(SERVER_GREET, greet, strlen(SERVER_GREET)))
+				break;
+		}
+
+		closesocket(sock);
+		sock = INVALID_SOCKET;
+	}
+
+#ifdef USE_GETADDRINFO
+	freeaddrinfo(addr);
+#endif
+
+	this->conn = sock;
+	printf("Listening port %d...\n", nport);
 }
 
-void AbstractSocketClient::processCommand()
+int SocketClient::handleSetRowCommand()
 {
-	unsigned char cmd = 0;
-	if (recv((char*)&cmd, 1)) {
+	uint32_t new_row;
+	int err = xrecv(conn, (char *)&new_row, sizeof(uint32_t), 0);
+	if (err) return err;
+	events.push({ RocketEvent::EventType::EVENT_ROW_CHANGED, "", ntohl(new_row) });
+
+	return 0;
+}
+
+int SocketClient::handleGetTrackCommand()
+{
+	uint32_t string_length;
+	int err = xrecv(conn, (char *)&string_length, sizeof(uint32_t), 0);
+	if (err) return err;
+
+	string_length = ntohl(string_length);
+	// We don't allow totally unreasonable string lengths.
+	if (string_length == 0 || string_length > 1000) {
+		return 0xB4DF00D;
+	}
+
+	std::vector<char> name_arr;
+	name_arr.resize(string_length);
+
+	if (xrecv(conn, &name_arr[0], string_length, 0)) {
+		return 0xB4DF00D;
+	}
+
+	std::string name(name_arr.begin(), name_arr.end());
+	requestTrack(name);
+	return 0;
+}
+
+int SocketClient::update()
+{
+	while (socket_poll(conn)) {
+		unsigned char cmd = 0;
+		if (xrecv(conn, (char *)&cmd, 1, 0))
+			goto sockerr;
+
 		switch (cmd) {
 		case GET_TRACK:
-			processGetTrack();
+			if (handleGetTrackCommand())
+				goto sockerr;
 			break;
-
 		case SET_ROW:
-			processSetRow();
+			if (handleSetRowCommand())
+				goto sockerr;
 			break;
+		default:
+			fprintf(stderr, "Unknown cmd: %02x\n", cmd);
+			goto sockerr;
 		}
 	}
-}
 
-void AbstractSocketClient::processGetTrack()
-{
-	// read data
-	quint32 strLen;
-	if (!recv((char *)&strLen, sizeof(strLen))) {
-		close();
-		return;
-	}
+	return 0;
 
-	strLen = qFromBigEndian(strLen);
-
-	if (!strLen) {
-		close();
-		return;
-	}
-
-	QByteArray trackNameBuffer;
-	trackNameBuffer.resize(strLen);
-	if (!recv(trackNameBuffer.data(), strLen) ||
-		trackNameBuffer.contains('\0')) {
-		close();
-		return;
-	}
-
-	requestTrack(QString::fromUtf8(trackNameBuffer));
-}
-
-void AbstractSocketClient::processSetRow()
-{
-	quint32 newRow;
-	if (recv((char *)&newRow, sizeof(newRow)))
-		emit rowChanged(qFromBigEndian(newRow));
-}
-
-void AbstractSocketClient::onReadyRead()
-{
-	while (socket->bytesAvailable() > 0)
-		processCommand();
+sockerr:
+	fprintf(stderr, "Closing socket %d\n", conn);
+	closesocket(conn);
+	conn = INVALID_SOCKET;
+	return -1;
 }
 
 #ifdef QT_WEBSOCKETS_LIB

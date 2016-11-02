@@ -26,6 +26,7 @@
 #endif
 
 #include "synctrack.h"
+#include "eventqueue.h"
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -62,12 +63,170 @@ enum {
 	SAVE_TRACKS = 5
 };
 
+// Discovers and authorizes new clients.
+// The client socket is then passed on to a SocketClient instance.
+class ConnectionListener {
+public:
+	// Can be extended later to support WebSocket connections.
+	typedef SOCKET socket_type_t;
+
+	ConnectionListener() {};
+	virtual ~ConnectionListener() {};
+	virtual void update() = 0;
+	virtual bool isListening() = 0;
+	virtual socket_type_t getClientSocket() = 0;
+};
+
+class SocketListener : public ConnectionListener {
+public:
+	SocketListener() : serverSocket(INVALID_SOCKET), clientSocket(INVALID_SOCKET)
+	{
+		struct sockaddr_in sin;
+		int yes = 1;
+
+#if defined(_WIN32)
+		static bool wsock_initialized;
+		if (!wsock_initialized) {
+			WSADATA wsaData;
+			if (WSAStartup(MAKEWORD(2, 0), &wsaData) != 0) {
+				return;
+			}
+			wsock_initialized = true;
+		}
+#endif
+
+		if (serverSocket != INVALID_SOCKET) {
+			return;
+		}
+
+		serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+
+		if (serverSocket == INVALID_SOCKET) {
+			return;
+		}
+
+		memset(&sin, 0, sizeof sin);
+
+		sin.sin_family = AF_INET;
+		sin.sin_addr.s_addr = INADDR_ANY;
+		sin.sin_port = htons(1338);
+
+		if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&yes, sizeof(int)) == -1)
+		{
+			fprintf(stderr, "setsockopt\n");
+			closesocket(serverSocket);
+			serverSocket = INVALID_SOCKET;
+			return;
+		}
+
+		if (-1 == bind(serverSocket, (struct sockaddr *)&sin, sizeof(sin)))
+		{
+			fprintf(stderr, "Unable to bind server socket\n");
+			closesocket(serverSocket);
+			serverSocket = INVALID_SOCKET;
+			return;
+		}
+
+		while (listen(serverSocket, SOMAXCONN) == -1)
+			;
+
+		printf("Created listener\n");
+	};
+
+	virtual ~SocketListener() 
+	{
+		closesocket(serverSocket);
+	};
+
+	virtual bool isListening() { return serverSocket != INVALID_SOCKET; }
+
+	virtual socket_type_t getClientSocket()
+	{
+		return clientSocket;
+	}
+
+	virtual void update()
+	{
+		struct timeval timeout;
+		struct sockaddr_in client;
+		SOCKET new_socket = INVALID_SOCKET;
+		fd_set fds;
+
+		FD_ZERO(&fds);
+		FD_SET(serverSocket, &fds);
+
+		timeout.tv_sec = 0;
+		timeout.tv_usec = 0;
+
+		/*if (RemoteConnection_connected())
+			return;*/
+
+		// look for new clients
+
+		if (select(serverSocket + 1, &fds, NULL, NULL, &timeout) > 0)
+		{
+			new_socket = clientConnect(serverSocket, &client);
+
+			if (INVALID_SOCKET != new_socket)
+			{
+				snprintf(connectionName, sizeof(connectionName), "Connected to %s", inet_ntoa(client.sin_addr));
+				printf("%s\n", connectionName);
+				clientSocket = new_socket;
+				//s_clientIndex = 0;
+				//RemoteConnection_sendPauseCommand(true);
+				//RemoteConnection_sendSetRowCommand(currentRow);
+			}
+			else
+			{
+				//
+			}
+		}
+	};
+
+protected:
+	SOCKET clientConnect(SOCKET serverSocket, struct sockaddr_in* host)
+	{
+		struct sockaddr_in hostTemp;
+		char recievedGreeting[128];
+		const char* expectedGreeting = CLIENT_GREET;
+		const char* greeting = SERVER_GREET;
+		unsigned int hostSize = sizeof(struct sockaddr_in);
+
+		SOCKET clientSocket = accept(serverSocket, (struct sockaddr*)&hostTemp, (socklen_t*)&hostSize);
+
+		if (INVALID_SOCKET == clientSocket) 
+			return INVALID_SOCKET;
+
+		recv(clientSocket, recievedGreeting, (int)strlen(expectedGreeting), 0);
+
+		if (strncmp(expectedGreeting, recievedGreeting, strlen(expectedGreeting)) != 0)
+		{
+			closesocket(clientSocket);
+			return INVALID_SOCKET;
+		}
+
+		send(clientSocket, greeting, (int)strlen(greeting), 0);
+
+		if (NULL != host) 
+			*host = hostTemp;
+
+		return clientSocket;
+	}
+
+	SOCKET serverSocket;
+	SOCKET clientSocket;
+	char connectionName[256];
+};
+
 class SyncClient {
 public:
-	SyncClient() : paused(false) { }
+	SyncClient(EventQueue& queue) : paused(false), events(queue) { }
+	virtual ~SyncClient() {};
 
 	virtual void close() = 0;
-	virtual int64_t sendData(const uint8_t* &data) = 0;
+	virtual int sendData(const uint8_t* data, size_t len) = 0;
+	virtual int update() = 0;
+	virtual bool isConnected() = 0;
 
 	void sendSetKeyCommand(const std::string &trackName, const SyncTrack::TrackKey &key);
 	void sendDeleteKeyCommand(const std::string &trackName, int row);
@@ -78,142 +237,19 @@ public:
 	bool isPaused() { return paused; }
 	void setPaused(bool);
 
-	/*
-signals:
-	void connected();
-	void disconnected();
-	void trackRequested(const QString &trackName);
-	void rowChanged(int row);
-
-	public slots:
-	*/
-
-	/*
-	void onKeyFrameAdded(int row)
-	{
-		const SyncTrack *track = qobject_cast<SyncTrack *>(sender());
-		sendSetKeyCommand(track->getName(), track->getKeyFrame(row));
-	}
-
-	void onKeyFrameChanged(int row, const SyncTrack::TrackKey &)
-	{
-		const SyncTrack *track = qobject_cast<SyncTrack *>(sender());
-		sendSetKeyCommand(track->getName(), track->getKeyFrame(row));
-	}
-
-	void onKeyFrameRemoved(int row, const SyncTrack::TrackKey &)
-	{
-		const SyncTrack *track = qobject_cast<SyncTrack *>(sender());
-		sendDeleteKeyCommand(track->getName(), row);
-	}
-
-	protected slots:
-	void onDisconnected()
-	{
-		emit disconnected();
-	}
-	*/
-
 protected:
 	void requestTrack(const std::string &trackName);
 	void sendPauseCommand(bool pause);
 
 	std::vector<std::string> trackNames;
 	bool paused;
+	EventQueue& events;
 };
 
 class SocketClient : public SyncClient {
 public:
-	explicit SocketClient(const char *host, unsigned short nport) 
-		: conn(INVALID_SOCKET)
-	{
-	SOCKET sock = INVALID_SOCKET;
-#ifdef USE_GETADDRINFO
-	struct addrinfo *addr, *curr;
-	char port[6];
-#else
-	struct hostent *he;
-	char **ap;
-#endif
-
-#ifdef WIN32
-	static int need_init = 1;
-	if (need_init) {
-		WSADATA wsa;
-		if (WSAStartup(MAKEWORD(2, 0), &wsa)) {
-			this->conn = INVALID_SOCKET;
-			return;// INVALID_SOCKET;
-		}
-		need_init = 0;
-	}
-#elif defined(USE_AMITCP)
-	if (!socket_base) {
-		socket_base = OpenLibrary("bsdsocket.library", 4);
-		if (!socket_base)
-			return INVALID_SOCKET;
-	}
-#endif
-
-#ifdef USE_GETADDRINFO
-
-	snprintf(port, sizeof(port), "%u", nport);
-	if (getaddrinfo(host, port, 0, &addr) != 0) {
-		this->conn = INVALID_SOCKET;
-		return; 
-	}
-
-	for (curr = addr; curr; curr = curr->ai_next) {
-		int family = curr->ai_family;
-		struct sockaddr *sa = curr->ai_addr;
-		int sa_len = (int)curr->ai_addrlen;
-
-#else
-
-	he = gethostbyname(host);
-	if (!he)
-		return INVALID_SOCKET;
-
-	for (ap = he->h_addr_list; *ap; ++ap) {
-		int family = he->h_addrtype;
-		struct sockaddr_in sin;
-		struct sockaddr *sa = (struct sockaddr *)&sin;
-		int sa_len = sizeof(*sa);
-
-		sin.sin_family = he->h_addrtype;
-		sin.sin_port = htons(nport);
-		memcpy(&sin.sin_addr, *ap, he->h_length);
-		memset(&sin.sin_zero, 0, sizeof(sin.sin_zero));
-
-#endif
-
-		sock = socket(family, SOCK_STREAM, 0);
-		if (sock == INVALID_SOCKET)
-			continue;
-
-		if (connect(sock, sa, sa_len) >= 0) {
-			char greet[128];
-
-			if (xsend(sock, CLIENT_GREET, strlen(CLIENT_GREET), 0) ||
-			    xrecv(sock, greet, strlen(SERVER_GREET), 0)) {
-				closesocket(sock);
-				sock = INVALID_SOCKET;
-				continue;
-			}
-
-			if (!strncmp(SERVER_GREET, greet, strlen(SERVER_GREET)))
-				break;
-		}
-
-		closesocket(sock);
-		sock = INVALID_SOCKET;
-	}
-
-#ifdef USE_GETADDRINFO
-	freeaddrinfo(addr);
-#endif
-
-	this->conn = sock;
-}
+	explicit SocketClient(EventQueue& queue, const char *host, unsigned short nport);
+	virtual int update();
 
 	virtual void close()
 	{
@@ -221,73 +257,20 @@ public:
 			closesocket(conn);
 	}
 
-	int64_t sendData(const char* data, size_t len)
+	int sendData(const uint8_t* data, size_t len)
 	{
-		//qint64 ret = socket->write(data);
-		//socket->flush();
 		return xsend(conn, data, len, 0);
 	}
 
+	virtual bool isConnected()
+	{
+		return conn != INVALID_SOCKET;
+	}
+
 protected:
+	int handleSetRowCommand();
+	int handleGetTrackCommand();
 	SOCKET conn;
 };
 
-/*
-class AbstractSocketClient : public SyncClient {
-public:
-	explicit AbstractSocketClient(QAbstractSocket *socket) : socket(socket)
-	{
-		connect(socket, SIGNAL(readyRead()), this, SLOT(onReadyRead()));
-		connect(socket, SIGNAL(disconnected()), this, SLOT(onDisconnected()));
-	}
-
-	virtual void close()
-	{
-		disconnect(socket, SIGNAL(readyRead()), this, SLOT(onReadyRead()));
-		disconnect(socket, SIGNAL(disconnected()), this, SLOT(onDisconnected()));
-		socket->close();
-	}
-
-	qint64 sendData(const QByteArray &data)
-	{
-		qint64 ret = socket->write(data);
-		socket->flush();
-		return ret;
-	}
-
-private:
-	QAbstractSocket *socket;
-	bool recv(char *buffer, qint64 length);
-
-	void processCommand();
-	void processGetTrack();
-	void processSetRow();
-
-	private slots:
-	void onReadyRead();
-};
-*/
-
-#ifdef QT_WEBSOCKETS_LIB
-
-class QWebSocket;
-
-class WebSocketClient : public SyncClient {
-	Q_OBJECT
-public:
-	explicit WebSocketClient(QWebSocket *socket);
-	void close();
-	qint64 sendData(const QByteArray &data);
-
-	public slots:
-	void processTextMessage(const QString &message);
-	void onMessageReceived(const QByteArray &data);
-
-private:
-	QWebSocket *socket;
-};
-
 #endif
-
-#endif // !defined(CLIENTSOCKET_H)
-
