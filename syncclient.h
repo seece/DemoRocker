@@ -219,7 +219,8 @@ protected:
 
 class SyncClient {
 public:
-	SyncClient(EventQueue& queue) : paused(false), events(queue) { }
+	SyncClient(EventQueue& queue) : paused(true), events(queue) {}
+
 	virtual ~SyncClient() {};
 
 	virtual void close() = 0;
@@ -231,14 +232,15 @@ public:
 	void sendDeleteKeyCommand(const std::string &trackName, int row);
 	void sendSetRowCommand(int row);
 	void sendSaveCommand();
+	// setPaused(bool) should be preferred to this.
+	void sendPauseCommand(bool pause);
 
 	const std::vector<std::string> getTrackNames() { return trackNames; }
 	bool isPaused() { return paused; }
-	void setPaused(bool);
+	void setPaused(bool paused);
 
 protected:
 	void requestTrack(const std::string &trackName);
-	void sendPauseCommand(bool pause);
 
 	std::vector<std::string> trackNames;
 	bool paused;
@@ -258,7 +260,7 @@ public:
 			closesocket(conn);
 	}
 
-	int sendData(const uint8_t* data, size_t len)
+	virtual int sendData(const uint8_t* data, size_t len)
 	{
 		return xsend(conn, data, len, 0);
 	}

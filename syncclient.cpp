@@ -45,9 +45,9 @@ void SyncClient::sendSetKeyCommand(const std::string &trackName, const SyncTrack
 #pragma pack(pop)
 
 	data.cmd		= (uint8_t)SET_KEY;
-	data.trackIndex = (uint32_t)trackIndex;
-	data.keyRow		= (uint32_t)key.row;
-	data.keyValue	= v.i;
+	data.trackIndex = (uint32_t)htonl(trackIndex);
+	data.keyRow		= (uint32_t)htonl(key.row);
+	data.keyValue	= htonl(v.i);
 	data.keyType	= (uint8_t)key.type;
 	sendData((const uint8_t*)&data, sizeof(data));
 }
@@ -67,8 +67,8 @@ void SyncClient::sendDeleteKeyCommand(const std::string &trackName, int row)
 #pragma pack(pop)
 
 	data.cmd		= (uint8_t)DELETE_KEY;
-	data.trackIndex = (uint32_t)trackIndex;
-	data.keyRow		= (uint32_t)row;
+	data.trackIndex = (uint32_t)htonl(trackIndex);
+	data.keyRow		= (uint32_t)htonl(row);
 
 	sendData((const uint8_t*)&data, sizeof(data));
 }
@@ -83,7 +83,7 @@ void SyncClient::sendSetRowCommand(int row)
 #pragma pack(pop)
 
 	data.cmd		= (uint8_t)SET_ROW;
-	data.row		= (uint32_t)row;
+	data.row		= (uint32_t)htonl(row);
 
 	sendData((const uint8_t*)&data, sizeof(data));
 }

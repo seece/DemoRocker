@@ -80,7 +80,7 @@ int main(int argc, char* argv[])
 		double a2 = sync_get_val(track_a2, playback_row);
 		double b = sync_get_val(track_b, playback_row);
 		double c = sync_get_val(track_c, playback_row);
-		printf("a1, a2, b, c: %f, %f, %f, %f\n", a1, a2, b, c);
+		printf("%f: a1, a2, b, c: %f, %f, %f, %f\n", playback_row, a1, a2, b, c);
 		if (song_playing) {
 			playback_row += 0.5;
 		}
