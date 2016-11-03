@@ -75,6 +75,8 @@ public:
 	virtual void update() = 0;
 	virtual bool isListening() = 0;
 	virtual socket_type_t getClientSocket() = 0;
+	// Call this after client disconnect has been detected.
+	virtual void resetClientSocket() = 0;
 };
 
 class SocketListener : public ConnectionListener {
@@ -139,11 +141,8 @@ public:
 	};
 
 	virtual bool isListening() { return serverSocket != INVALID_SOCKET; }
-
-	virtual socket_type_t getClientSocket()
-	{
-		return clientSocket;
-	}
+	virtual socket_type_t getClientSocket() { return clientSocket; }
+	virtual void resetClientSocket() { clientSocket = INVALID_SOCKET; }
 
 	virtual void update()
 	{
@@ -248,7 +247,9 @@ protected:
 
 class SocketClient : public SyncClient {
 public:
-	explicit SocketClient(EventQueue& queue, const char *host, unsigned short nport);
+	// <queue> is used to notify other parts about received messages.
+	// <socket> should be a socket returned by SocketListener::getClientSocket()
+	explicit SocketClient(EventQueue& queue, ConnectionListener::socket_type_t socket);
 	virtual int update();
 
 	virtual void close()

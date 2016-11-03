@@ -125,93 +125,10 @@ void SyncClient::requestTrack(const std::string &trackName)
 	events.push({ RocketEvent::EventType::EVENT_TRACK_REQUESTED, trackName, 0 });
 }
 
-SocketClient::SocketClient(EventQueue& queue, const char *host, unsigned short nport)
-	: SyncClient(queue), conn(INVALID_SOCKET)
+SocketClient::SocketClient(EventQueue& queue, ConnectionListener::socket_type_t socket)
+	: SyncClient(queue), conn(socket)
 {
-	SOCKET sock = INVALID_SOCKET;
-#ifdef USE_GETADDRINFO
-	struct addrinfo *addr, *curr;
-	char port[6];
-#else
-	struct hostent *he;
-	char **ap;
-#endif
-
-#ifdef WIN32
-	static int need_init = 1;
-	if (need_init) {
-		WSADATA wsa;
-		if (WSAStartup(MAKEWORD(2, 0), &wsa)) {
-			this->conn = INVALID_SOCKET;
-			return;// INVALID_SOCKET;
-		}
-		need_init = 0;
-	}
-#endif
-
-#ifdef USE_GETADDRINFO
-
-	snprintf(port, sizeof(port), "%u", nport);
-	if (getaddrinfo(host, port, 0, &addr) != 0) {
-		this->conn = INVALID_SOCKET;
-		return;
-	}
-
-	for (curr = addr; curr; curr = curr->ai_next) {
-		int family = curr->ai_family;
-		struct sockaddr *sa = curr->ai_addr;
-		int sa_len = (int)curr->ai_addrlen;
-
-#else
-
-	he = gethostbyname(host);
-	if (!he) {
-		this->conn = INVALID_SOCKET;
-		return;
-	}
-
-	for (ap = he->h_addr_list; *ap; ++ap) {
-		int family = he->h_addrtype;
-		struct sockaddr_in sin;
-		struct sockaddr *sa = (struct sockaddr *)&sin;
-		int sa_len = sizeof(*sa);
-
-		sin.sin_family = he->h_addrtype;
-		sin.sin_port = htons(nport);
-		memcpy(&sin.sin_addr, *ap, he->h_length);
-		memset(&sin.sin_zero, 0, sizeof(sin.sin_zero));
-
-#endif
-
-		sock = socket(family, SOCK_STREAM, 0);
-		if (sock == INVALID_SOCKET)
-			continue;
-
-		// TODO change this, it must be totally different for server
-		if (connect(sock, sa, sa_len) >= 0) {
-			char greet[128];
-
-			if (xsend(sock, CLIENT_GREET, strlen(CLIENT_GREET), 0) ||
-				xrecv(sock, greet, strlen(SERVER_GREET), 0)) {
-				closesocket(sock);
-				sock = INVALID_SOCKET;
-				continue;
-			}
-
-			if (!strncmp(SERVER_GREET, greet, strlen(SERVER_GREET)))
-				break;
-		}
-
-		closesocket(sock);
-		sock = INVALID_SOCKET;
-	}
-
-#ifdef USE_GETADDRINFO
-	freeaddrinfo(addr);
-#endif
-
-	this->conn = sock;
-	printf("Listening port %d...\n", nport);
+	printf("SocketClient created with socket %d.\n", socket);
 }
 
 int SocketClient::handleSetRowCommand()
