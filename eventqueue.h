@@ -8,8 +8,6 @@ struct RocketEvent {
 		EVENT_INVALID = 0,
 		EVENT_TRACK_REQUESTED,
 		EVENT_ROW_CHANGED,
-		EVENT_DISCONNECTED,
-		EVENT_CONNECTED,
 	} type;
 
 	static const char* typeToString(EventType type)
@@ -18,8 +16,6 @@ struct RocketEvent {
 		case EVENT_INVALID: return "INVALID";
 		case EVENT_TRACK_REQUESTED: return "EVENT_TRACK_REQUESTED";
 		case EVENT_ROW_CHANGED: return "EVENT_ROW_CHANGED";
-		case EVENT_DISCONNECTED: return "EVENT_DISCONNECTED";
-		case EVENT_CONNECTED: return "EVENT_CONNECTED";
 		default: return "unknown";
 		}
 	}

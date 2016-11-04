@@ -1,21 +1,21 @@
 #include "config.h"
 #include "syncclient.h"
+#include "editor.h"
 #include <conio.h>
 #include <cstdio>
 #include <cstdlib>
 
 int main(int argc, char* argv[])
 {
-	using namespace std::chrono_literals;
 	printf("DemoRocker version %d\n", DEMOROCKER_VERSION);
 	EventQueue queue;
 	//SocketClient client(queue, "127.0.0.1", 1338);
 	SocketListener listener;
-	bool running = true;
 	puts("Press q to quit");
 	std::unique_ptr<SyncClient> client;// = std::make_unique<SocketClient>()
+	Editor editor(queue);
 
-	while (running) {
+	while (editor.appRunning) {
 		//printf("Connected: %s\n", client.isConnected() ? "true" : "false");
 		// TODO signal the connection loss with an event instead of this check?
 		if (!client || !client->isConnected()) {
@@ -38,16 +38,16 @@ int main(int argc, char* argv[])
 
 		if (client) {
 			client->update();
-
+			editor.update(*client);
+		} else {
+			using namespace std::chrono_literals;
 			RocketEvent ev;
-			while (queue.try_pop(ev, 10ms)) {
-				printf("Event: (%s, %d, %s)\n", RocketEvent::typeToString(ev.type), ev.intParam, ev.stringParam.c_str());
-			}
-		} 
-		
+			while (queue.try_pop(ev, 0ms)) { /* clear the queue */ }
+		}
 
+		editor.draw();
+		
 		Sleep(20);
-		//client.update();
 	}
 	return 0;
 }
