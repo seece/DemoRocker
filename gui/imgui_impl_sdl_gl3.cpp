@@ -301,6 +301,19 @@ void    ImGui_ImplSdlGL3_InvalidateDeviceObjects()
     }
 }
 
+static SDL_Cursor* ArrowCursor;
+static SDL_Cursor* IbeamCursor;
+static SDL_Cursor* WaitCursor;
+static SDL_Cursor* CrosshairCursor;
+static SDL_Cursor* WaitarrowCursor;
+static SDL_Cursor* SizeNWSECursor;
+static SDL_Cursor* SizeNESWCursor;
+static SDL_Cursor* SizeWECursor;
+static SDL_Cursor* SizeNSCursor;
+static SDL_Cursor* SizeallCursor;
+static SDL_Cursor* NoCursor;
+static SDL_Cursor* HandCursor;
+
 bool    ImGui_ImplSdlGL3_Init(SDL_Window* window)
 {
     ImGuiIO& io = ImGui::GetIO();
@@ -338,6 +351,18 @@ bool    ImGui_ImplSdlGL3_Init(SDL_Window* window)
     (void)window;
 #endif
 
+	ArrowCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+	IbeamCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
+	WaitCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+	CrosshairCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
+	WaitarrowCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAITARROW);
+	SizeNWSECursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENWSE);
+	SizeNESWCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENESW);
+	SizeWECursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE);
+	SizeNSCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS);
+	SizeallCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEALL);
+	NoCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO);
+	HandCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
     return true;
 }
 
@@ -387,6 +412,32 @@ void ImGui_ImplSdlGL3_NewFrame(SDL_Window* window)
 
     // Hide OS mouse cursor if ImGui is drawing it
     SDL_ShowCursor(io.MouseDrawCursor ? 0 : 1);
+	switch (ImGui::GetMouseCursor()) {
+		case ImGuiMouseCursor_Arrow:
+			SDL_SetCursor(ArrowCursor);
+			break;
+		case ImGuiMouseCursor_TextInput:         // When hovering over InputText, etc.
+			SDL_SetCursor(IbeamCursor);
+			break;
+		case ImGuiMouseCursor_Move:              // Unused
+			SDL_SetCursor(SizeallCursor);
+			break;
+		case ImGuiMouseCursor_ResizeNS:          // Unused
+			SDL_SetCursor(SizeNSCursor);
+			break;
+		case ImGuiMouseCursor_ResizeEW:          // When hovering over a column
+			SDL_SetCursor(SizeWECursor);
+			break;
+		case ImGuiMouseCursor_ResizeNESW:        // Unused
+			SDL_SetCursor(SizeNESWCursor);
+			break;
+		case ImGuiMouseCursor_ResizeNWSE:        // When hovering over the bottom-right corner of a window
+			SDL_SetCursor(SizeNWSECursor);
+			break;
+		default:
+			SDL_SetCursor(ArrowCursor);
+			break;
+	}
 
     // Start the frame
     ImGui::NewFrame();
