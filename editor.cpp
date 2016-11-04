@@ -13,10 +13,16 @@ Editor(EventQueue& eventqueue) : queue(eventqueue) {
 static bool show_test_window = true;
 static bool show_another_window = false;
 static ImVec4 clear_color = ImColor(114, 144, 154);
+static bool show_status_window = true;
 
 void Editor::draw()
 {
+	using std::string;
+	using std::to_string;
 	SDL_Event event;
+
+	Key_update();
+
 	while (SDL_PollEvent(&event))
 	{
 		ImGui_ImplSdlGL3_ProcessEvent(&event);
@@ -25,6 +31,10 @@ void Editor::draw()
 		}
 	}
 	ImGui_ImplSdlGL3_NewFrame(Window_handle);
+
+	if (Key_hit(SDL_SCANCODE_ESCAPE)) {
+		appRunning = false;
+	}
 
 	// 1. Show a simple window
 	// Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets appears in a window automatically called "Debug"
@@ -38,13 +48,29 @@ void Editor::draw()
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	}
 
-	// 2. Show another simple window, this time using an explicit Begin/End pair
-	if (show_another_window)
+	if (ImGui::BeginMainMenuBar())
 	{
-		ImGui::SetNextWindowSize(ImVec2(200, 100), ImGuiSetCond_FirstUseEver);
-		ImGui::Begin("Another Window", &show_another_window);
-		ImGui::Text("Hello");
-		ImGui::End();
+		if (ImGui::BeginMenu("Menu"))
+		{
+			ImGui::EndMenu();
+		}
+	}
+	ImGui::EndMainMenuBar();
+
+
+	{
+		ImGui::Begin("Status", &show_status_window, ImGuiWindowFlags_MenuBar);
+
+		if (ImGui::Button("play/pause")) {
+		}
+		string trackCount = to_string(tracks.size()) + " tracks";
+		ImGui::Text(trackCount.c_str());
+		for (auto& t : tracks) {
+			string line = t.getName();
+			line += t.isActive() ? " active" : " inactive";
+			ImGui::Text(line.c_str());
+		}
+        ImGui::End();
 	}
 
 	// 3. Show the ImGui test window. Most of the sample code is in ImGui::ShowTestWindow()

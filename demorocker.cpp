@@ -46,8 +46,6 @@ int main(int argc, char* argv[])
 		}
 
 		editor.draw();
-		
-		Sleep(20);
 	}
 	return 0;
 }

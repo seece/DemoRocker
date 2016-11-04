@@ -56,6 +56,7 @@ public:
 
 	bool isKeyFrame(int row) const
 	{
+		assert(!"implement");
 		/*
 		auto it = keys.lowerBound(row);
 		return it != keys.end() && it.key() == row;
@@ -65,6 +66,7 @@ public:
 	TrackKey getKeyFrame(int row) const
 	{
 		assert(isKeyFrame(row));
+		assert(!"implement");
 		/*
 		QMap<int, TrackKey>::const_iterator it = keys.lowerBound(row);
 		return it.value();
@@ -73,6 +75,7 @@ public:
 
 	const TrackKey *getPrevKeyFrame(int row) const
 	{
+		assert(!"implement");
 		/*
 		QMap<int, TrackKey>::const_iterator it = keys.lowerBound(row);
 		if (it != keys.constBegin() && (it == keys.constEnd() || it.key() != row))
@@ -88,6 +91,7 @@ public:
 
 	const TrackKey *getNextKeyFrame(int row) const
 	{
+		assert(!"implement");
 		/*
 		QMap<int, TrackKey>::const_iterator it = keys.lowerBound(row + 1);
 

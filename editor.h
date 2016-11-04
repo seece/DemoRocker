@@ -6,12 +6,14 @@
 #include "eventqueue.h"
 
 #include "window.h"
+#include "input.h"
 
 class Editor {
 public:
 	Editor(EventQueue& eventqueue) : queue(eventqueue), appRunning(true)
 	{
 		Window_init(1200, 700, false, true);
+		Key_init();
 	};
 
 	~Editor()
@@ -53,4 +55,6 @@ public:
 protected:
 	EventQueue& queue;
 	std::vector<SyncTrack> tracks;
+	std::vector<uint8_t> keyboardState;
+	std::vector<uint8_t> keyboardStateLast;
 };

@@ -25,6 +25,7 @@
     <ClCompile Include="gui\imgui_demo.cpp" />
     <ClCompile Include="gui\imgui_draw.cpp" />
     <ClCompile Include="gui\imgui_impl_sdl_gl3.cpp" />
+    <ClCompile Include="input.cpp" />
     <ClCompile Include="lib\gl3w\src\gl3w.c" />
     <ClCompile Include="syncclient.cpp" />
     <ClCompile Include="window.cpp" />
@@ -40,6 +41,7 @@
     <ClInclude Include="gui\stb_rect_pack.h" />
     <ClInclude Include="gui\stb_textedit.h" />
     <ClInclude Include="gui\stb_truetype.h" />
+    <ClInclude Include="input.h" />
     <ClInclude Include="syncclient.h" />
     <ClInclude Include="synctrack.h" />
     <ClInclude Include="window.h" />

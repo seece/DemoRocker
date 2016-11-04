@@ -41,6 +41,9 @@
     <ClCompile Include="gui\imgui_impl_sdl_gl3.cpp">
       <Filter>Source Files\gui</Filter>
     </ClCompile>
+    <ClCompile Include="input.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="config.h">
@@ -81,6 +84,9 @@
     </ClInclude>
     <ClInclude Include="gui\imgui_impl_sdl_gl3.h">
       <Filter>Source Files\gui</Filter>
+    </ClInclude>
+    <ClInclude Include="input.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

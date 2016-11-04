@@ -144,6 +144,7 @@ bool ImGui_ImplSdlGL3_ProcessEvent(SDL_Event* event)
                 g_MouseWheel = 1;
             if (event->wheel.y < 0)
                 g_MouseWheel = -1;
+
             return true;
         }
     case SDL_MOUSEBUTTONDOWN:
