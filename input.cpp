@@ -37,6 +37,7 @@ bool Key_down(int key)
 
 void Key_update()
 {
+	SDL_PumpEvents();
 	memcpy(&stateLast[0], &state[0], state.size());
 	int keyCount = 0;
 	const uint8_t* kbdState = SDL_GetKeyboardState(&keyCount);

@@ -38,4 +38,4 @@ ipch/
 lib/librocket-player.lib
 lib/librocket-playerd.lib
 testclient/*.track
-gui/imconfig.h
+imgui.ini

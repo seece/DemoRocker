@@ -20,8 +20,10 @@ struct RocketEvent {
 		}
 	}
 
-	std::string stringParam;
-	uint32_t intParam;
+	// The parameter type depends on the event and the recipient
+	// will read the correct one of these.
+	std::string string;
+	uint32_t integer;
 };
 
 class EventQueue {

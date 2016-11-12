@@ -15,7 +15,7 @@ static bool show_another_window = false;
 static ImVec4 clear_color = ImColor(114, 144, 154);
 static bool show_status_window = true;
 
-void Editor::draw()
+void Editor::draw(SyncClient* client)
 {
 	using std::string;
 	using std::to_string;
@@ -52,17 +52,26 @@ void Editor::draw()
 	{
 		if (ImGui::BeginMenu("Menu"))
 		{
+			if (ImGui::MenuItem("Exit")) { appRunning = false; }
+            //if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
 			ImGui::EndMenu();
 		}
 	}
 	ImGui::EndMainMenuBar();
 
-
 	{
 		ImGui::Begin("Status", &show_status_window, ImGuiWindowFlags_MenuBar);
 
-		if (ImGui::Button("play/pause")) {
+		const char* playlabel = "Pause";
+		if (ui.paused) { playlabel = "Play"; }
+
+		if (ImGui::Button(playlabel) && client) {
+			ui.paused = !ui.paused;
+			client->setPaused(ui.paused);
 		}
+
+		ImGui::Text("Row: %d", ui.row);
+		ImGui::Text("Client: %s", client ? "Connected" : "Not connected");
 		string trackCount = to_string(tracks.size()) + " tracks";
 		ImGui::Text(trackCount.c_str());
 		for (auto& t : tracks) {
@@ -86,4 +95,11 @@ void Editor::draw()
 	glClear(GL_COLOR_BUFFER_BIT);
 	ImGui::Render();
 	SDL_GL_SwapWindow(Window_handle);
+}
+
+void Editor::invalidateTracks()
+{
+	for (auto& t : tracks) {
+		t.setActive(false);
+	}
 }

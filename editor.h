@@ -7,12 +7,21 @@
 
 #include "window.h"
 #include "input.h"
+#include "config.h"
 
 class Editor {
+	class UI {
+		public:
+			int row;
+			bool paused;
+			UI() : row(0), paused(true) {};
+	};
+
 public:
 	Editor(EventQueue& eventqueue) : queue(eventqueue), appRunning(true)
 	{
-		Window_init(1200, 700, false, true);
+		std::string title = "Demo Rocker v" + std::to_string(DEMOROCKER_VERSION);
+		Window_init(1200, 700, false, true, title.c_str());
 		Key_init();
 	};
 
@@ -21,27 +30,33 @@ public:
 		int Window_deinit();
 	}
 
-	void update(SyncClient& client)
+	void update(SyncClient* client)
 	{
 		using namespace std::chrono_literals;
 
 		RocketEvent ev;
 		while (queue.try_pop(ev, 0ms)) {
-			printf("Event: (%s, %d, %s)\n", RocketEvent::typeToString(ev.type), ev.intParam, ev.stringParam.c_str());
+			printf("Event: (%s, %d, %s)\n", RocketEvent::typeToString(ev.type), ev.integer, ev.string.c_str());
 			switch (ev.type) {
 			case RocketEvent::EVENT_ROW_CHANGED:
+				ui.row = ev.integer;
 				break;
 			case RocketEvent::EVENT_TRACK_REQUESTED:
-				auto t = std::find_if(tracks.begin(), tracks.end(), [&ev](SyncTrack& t) { return t.getName() == ev.stringParam; });
+				if (!client) continue;
+
+				auto t = std::find_if(tracks.begin(), tracks.end(), [&ev](SyncTrack& t) { return t.getName() == ev.string; });
 				if (t == tracks.end()) {
 					// Create a new track.
-					tracks.push_back({ ev.stringParam, ev.stringParam });
+					tracks.push_back({ ev.string, ev.string });
 					t = tracks.end() - 1; // The newly added track is in the last slot.
 				}
 
+				// Track becomes active once it has been requested by the client.
+				t->setActive(true);
+
 				auto keyMap = t->getKeyMap();
 				for (auto key : keyMap) {
-					client.sendSetKeyCommand(t->getName(), key.second);
+					client->sendSetKeyCommand(t->getName(), key.second);
 				}
 
 				break;
@@ -49,10 +64,12 @@ public:
 		}
 	}
 
-	void draw();
+	void draw(SyncClient* client);
+	void invalidateTracks();
 
 	bool appRunning;
 protected:
+	UI ui;
 	EventQueue& queue;
 	std::vector<SyncTrack> tracks;
 	std::vector<uint8_t> keyboardState;

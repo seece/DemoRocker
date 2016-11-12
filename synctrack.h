@@ -169,6 +169,7 @@ public:
 		return keys;
 	}
 
+	// Track is considered active if it has been requested by a client.
 	bool isActive() const
 	{
 		return active;

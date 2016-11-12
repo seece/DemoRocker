@@ -32,20 +32,20 @@ int main(int argc, char* argv[])
 			client = std::make_unique<SocketClient>(queue, clientSocket);
 			client->sendPauseCommand(true);
 			client->sendSetRowCommand(1);
-
-			client->setPaused(false);
+			editor.invalidateTracks();
 		}
+
+		editor.update(client.get());
 
 		if (client) {
 			client->update();
-			editor.update(*client);
 		} else {
 			using namespace std::chrono_literals;
 			RocketEvent ev;
 			while (queue.try_pop(ev, 0ms)) { /* clear the queue */ }
 		}
 
-		editor.draw();
+		editor.draw(client.get());
 	}
 	return 0;
 }

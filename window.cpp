@@ -55,7 +55,7 @@ int Window_deinit()
 	return 0;
 }
 
-int Window_init(int width, int height, bool fullscreen, bool vsync)
+int Window_init(int width, int height, bool fullscreen, bool vsync, const char* title)
 {
 	SDL_Init(SDL_INIT_VIDEO);
 
@@ -77,7 +77,9 @@ int Window_init(int width, int height, bool fullscreen, bool vsync)
 		flags |= SDL_WINDOW_FULLSCREEN;
 	}
 
-	Window_handle = SDL_CreateWindow("DemoApp", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+	if (!title) { title = "SDL Window"; }
+
+	Window_handle = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		width, height, flags);
 
 	if (!Window_handle) {

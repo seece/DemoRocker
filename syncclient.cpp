@@ -116,15 +116,6 @@ void SyncClient::setPaused(bool pause)
 	}
 }
 
-void SyncClient::requestTrack(const std::string &trackName)
-{
-	trackNames.push_back(trackName);
-	// TODO should we handle the event here right away so there wouldn't be a
-	// a race condition where a new track name already exists but isn't added
-	// anywhere else?
-	events.push({ RocketEvent::EventType::EVENT_TRACK_REQUESTED, trackName, 0 });
-}
-
 SocketClient::SocketClient(EventQueue& queue, ConnectionListener::socket_type_t socket)
 	: SyncClient(queue), conn(socket)
 {
@@ -141,6 +132,13 @@ int SocketClient::handleSetRowCommand()
 	return 0;
 }
 
+// Called when the client requests a track from server.
+void SyncClient::requestTrack(const std::string &trackName)
+{
+	trackNames.push_back(trackName);
+	events.push({ RocketEvent::EventType::EVENT_TRACK_REQUESTED, trackName, 0 });
+}
+
 int SocketClient::handleGetTrackCommand()
 {
 	uint32_t string_length;
@@ -150,14 +148,14 @@ int SocketClient::handleGetTrackCommand()
 	string_length = ntohl(string_length);
 	// We don't allow totally unreasonable string lengths.
 	if (string_length == 0 || string_length > 1000) {
-		return 0xB4DF00D;
+		return -1;
 	}
 
 	std::vector<char> name_arr;
 	name_arr.resize(string_length);
 
 	if (xrecv(conn, &name_arr[0], string_length, 0)) {
-		return 0xB4DF00D;
+		return -1;
 	}
 
 	std::string name(name_arr.begin(), name_arr.end());
