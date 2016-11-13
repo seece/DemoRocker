@@ -54,6 +54,8 @@ void SyncClient::sendSetKeyCommand(const std::string &trackName, const SyncTrack
 
 void SyncClient::sendDeleteKeyCommand(const std::string &trackName, int row)
 {
+	// We need to communicate the track identity to the client as a track
+	// index, not a string.
 	int trackIndex = std::find(trackNames.begin(), trackNames.end(), trackName) - trackNames.begin();
 	if (trackIndex == trackNames.size())
 		return;

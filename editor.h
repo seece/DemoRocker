@@ -10,10 +10,20 @@
 #include "config.h"
 
 class Editor {
+	struct TrackState {
+		int height;
+		bool collapsed;
+		TrackState() : height(40), collapsed(false) {};
+		int getHeight() {
+			if (collapsed) { return 16; }
+			return height;
+		}
+	};
 	class UI {
 		public:
 			int row;
 			bool paused;
+			std::map<std::string, TrackState> trackmap;
 			UI() : row(0), paused(true) {};
 	};
 
@@ -49,6 +59,7 @@ public:
 					// Create a new track.
 					tracks.push_back({ ev.string, ev.string });
 					t = tracks.end() - 1; // The newly added track is in the last slot.
+					ui.trackmap.insert(std::make_pair(t->getName(), TrackState()));
 				}
 
 				// Track becomes active once it has been requested by the client.
